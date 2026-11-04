@@ -1,0 +1,70 @@
+#pragma once
+
+#include <cassert>
+#include <iostream>
+#include <memory>
+#include <vector>
+
+#include "lexer.hpp"
+#include "node.hpp"
+
+/* G          ::= FUNCTION_D+
+   FUNCTION_D ::= "declare" V "(" [ E {"," E}* ] ")" "{" OP* "}"
+
+   OP         ::= RETURN | PRINTF | SCANF | WHILE | IF
+
+   RETURN     ::= "return" E ";" +
+   PRINTF     ::= ("write" | "write_char") "(" (V | N) ")" ";" +
+   SCANF      ::= "read" "(" S ")" ";" пока скип
+   WHILE      ::= "while" "(" CONDITION ")" BODY +
+   IF         ::= "if" "(" CONDITION ")" BODY [ "else" BODY ] +
+   CONDITION  ::= E [ ("<=" | "<" | ">=" | ">" | "==" | "!=") E ]
+   BODY       ::= "{" OP* "}"
+
+   E          ::= T ([+-] T)* +
+   T          ::= P ([*:/] P)* +
+   P          ::= IntLiteral | Identifier | '(' E ')' +
+
+   V          ::= Variable +
+   N          ::= Number +
+*/
+
+namespace paracl::parser {
+
+using NodePtr = std::unique_ptr<INode>;
+
+class Parser {
+public:
+    Parser(const lexer::Lexer* lexer, std::vector<lexer::Token> tokens)
+        : lexer_(lexer)
+        , tokens_(std::move(tokens)) { }
+
+private:
+    NodePtr GetWhile();
+    NodePtr GetIf();
+    NodePtr GetCondition();
+    NodePtr GetBody();
+    NodePtr GetExpression();
+    NodePtr GetTerm();
+    NodePtr GetPrimary();
+    NodePtr GetIdentifier();
+    NodePtr GetIntLiteral();
+    NodePtr GetReturn();
+    NodePtr GetPrint();
+    NodePtr GetOp();
+    NodePtr GetAssign();
+
+    static bool IsComparisonSign(lexer::Token token);
+    static OpType ToOpType(lexer::Token token);
+
+    lexer::Token GetToken() const;
+    lexer::Token GetNextToken();
+    bool IsThatTokenType(lexer::TokenType type);
+    void IncreaseTokensPos();
+
+    const lexer::Lexer* lexer_ = nullptr;
+    std::vector<lexer::Token> tokens_;
+    std::size_t pos_ = 0;
+};
+
+} // namespace paracl::parser
