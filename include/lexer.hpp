@@ -67,8 +67,8 @@ public:
             return {1, 1};
         }
 
-        auto it = std::upper_bound(newLines_.begin(), newLines_.end(), offset);
-        std::size_t lineIdx = std::distance(newLines_.begin(), it);
+        auto iterator = std::upper_bound(newLines_.begin(), newLines_.end(), offset);
+        std::size_t lineIdx = std::distance(newLines_.begin(), iterator);
         
         return {lineIdx, offset - newLines_[lineIdx - 1] + 1};
     }
@@ -93,8 +93,8 @@ private:
 
 class Lexer {
  public:
-    int64_t TokenToNum(Token token);
-    std::string TokenToStr(Token token);
+    static int64_t TokenToNum(Token token, const SourceBuffer& buffer);
+    static std::string TokenToStr(Token token, const SourceBuffer& buffer);
  
  Lexer(const SourceBuffer& source)
     : buffer_{source} {}

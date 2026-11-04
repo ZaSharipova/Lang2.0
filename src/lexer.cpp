@@ -3,7 +3,6 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include <sstream>
 #include <charconv>
 #include <cctype>
 
@@ -50,6 +49,8 @@ SourceBuffer SourceBuffer::FromFile(const char* filepath) {
 
     buffer[size] = '\0';
 
+    SourceBuffer::BuildNewLines();
+
     return buffer;
 }
 
@@ -58,12 +59,14 @@ SourceBuffer SourceBuffer::FromString(const std::string& str) {
     buffer.push_back('\0');
 
     SourceBuffer sb(buffer);
+    SourceBuffer::BuildNewLines();
+
     return sb;
 }
 
-int64_t Lexer::TokenToNum(Token token) {
+int64_t Lexer::TokenToNum(Token token, const SourceBuffer& buffer) {
     int64_t value = 0;
-    auto [ptr, ec] = std::from_chars(buffer_.data() + token.offset, buffer_.data() + token.offset + token.len, value);
+    auto [ptr, ec] = std::from_chars(buffer.data() + token.offset, buffer.data() + token.offset + token.len, value);
     if (ec == std::errc{}) {
         return value;
     }
@@ -71,8 +74,8 @@ int64_t Lexer::TokenToNum(Token token) {
     return -1;
 }
 
-std::string Lexer::TokenToStr(Token token) {
-    std::string str(buffer_.data() + token.offset, token.len);
+std::string Lexer::TokenToStr(Token token, const SourceBuffer& buffer) {
+    std::string str(buffer.data() + token.offset, token.len);
     return str;
 }
 
