@@ -1,0 +1,65 @@
+---
+
+Checks: '-*,bugprone-*,-bugprone-easily-swappable-parameters,clang-analyzer-*,concurrency-*,cppcoreguidelines-init-variables,cppcoreguidelines-pro-type-cstyle-cast,cppcoreguidelines-slicing,cppcoreguidelines-virtual-class-destructor,misc-*,-misc-non-private-member-variables-in-classes,-misc-include-cleaner,modernize-*,-modernize-use-trailing-return-type,-modernize-use-nodiscard,-modernize-avoid-c-arrays,performance-*,portability-*,-portability-avoid-pragma-once,readability-*,-readability-braces-around-statements,-readability-function-cognitive-complexity,-readability-named-parameter,-readability-uppercase-literal-suffix'
+
+WarningsAsErrors: ''
+
+HeaderFilterRegex: '.*'
+
+FormatStyle: file
+
+SystemHeaders: false
+
+CheckOptions:
+  - key: readability-function-size.LineThreshold
+    value: '60'
+  - key: readability-function-size.StatementThreshold
+    value: '150'
+  - key: readability-identifier-length.MinimumVariableNameLength
+    value: '3'
+  - key: readability-identifier-length.MinimumParameterNameLength
+    value: '3'
+  - key: readability-implicit-bool-conversion.AllowPointerConditions
+    value: 'true'
+  - key: readability-implicit-bool-conversion.AllowIntegerConditions
+    value: 'false'
+  - key: modernize-use-default-member-init.UseAssignment
+    value: 'false'
+  - key: modernize-use-auto.MinTypeNameLength
+    value: '5'
+  - key: modernize-loop-convert.MinConfidence
+    value: 'reasonable'
+  - key: modernize-use-override.AllowOverrideAndFinal
+    value: 'false'
+  - key: performance-unnecessary-value-param.AllowedTypes
+    value: ''
+  - key: bugprone-unused-return-value.CheckedFunctions
+    value: '::std::async;::std::launder;::std::remove;::std::remove_if;::std::unique;::std::unique_ptr::release;::std::basic_string::empty;::std::vector::empty'
+  - key: readability-identifier-naming.NamespaceCase
+    value: 'lower_case'
+  - key: readability-identifier-naming.ClassCase
+    value: 'CamelCase'
+  - key: readability-identifier-naming.StructCase
+    value: 'CamelCase'
+  - key: readability-identifier-naming.UnionCase
+    value: 'CamelCase'
+  - key: readability-identifier-naming.EnumCase
+    value: 'CamelCase'
+  - key: readability-identifier-naming.ScopedEnumConstantCase
+    value: 'CamelCase'
+  - key: readability-identifier-naming.ScopedEnumConstantPrefix
+    value: 'k'
+  - key: readability-identifier-naming.EnumConstantCase
+    value: 'CamelCase'
+  - key: readability-identifier-naming.EnumConstantPrefix
+    value: 'k'
+  - key: readability-identifier-naming.TypeAliasCase
+    value: 'CamelCase'
+  - key: readability-identifier-naming.TypedefCase
+    value: 'CamelCase'
+  - key: readability-identifier-naming.TemplateParameterCase
+    value: 'CamelCase'
+  - key: readability-identifier-naming.GlobalVariablePrefix
+    value: 'g_'
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: 'UPPER_CASE'
