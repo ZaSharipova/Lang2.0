@@ -4,19 +4,24 @@
 #include <fstream>
 #include <vector>
 #include <sstream>
+#include <charconv>
+#include <cctype>
 
 namespace paracl::lexer {
 
+static const char kOpenCommentChars[] = "/*";
+static const char kCloseCommentChars[] = "*/";
+
 static bool IsSpace(char c) {
-    return (c == ' ' || c == '\n' || c == '\t');
+    return std::isspace(static_cast<unsigned char>(c));
 }
 
 static bool IsDigit(char c) {
-    return ('0' <= c && c <= '9');
+    return std::isdigit(static_cast<unsigned char>(c)) || c == '_';
 }
 
 static bool IsAlpha(char c) {
-    return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || (c == '_');
+    return std::isalpha(static_cast<unsigned char>(c));
 }
 
 static bool IsAlnum(char c) {
@@ -24,16 +29,28 @@ static bool IsAlnum(char c) {
 }
 
 SourceBuffer SourceBuffer::FromFile(const char* filepath) {
-    std::ifstream file(filepath);
+    std::ifstream file(filepath, std::ios::ate);
     if (!file.is_open()) {
-        throw std::runtime_error("file didnt open");
+        throw std::runtime_error(std::string("file") + filepath + "didnt open");
     }
 
-    std::stringstream stringBuffer;
-    stringBuffer << file.rdbuf();
-    std::string text = stringBuffer.str();
+    // Запромчено
+    // ==================================
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    // ==================================
 
-    return SourceBuffer::FromString(text);
+    std::vector<char> buffer(size + 1);
+
+    if (size > 0) {
+        if (!file.read(buffer.data(), size)) {
+            throw std::runtime_error("file read error");
+        }
+    }
+
+    buffer[size] = '\0';
+
+    return buffer;
 }
 
 SourceBuffer SourceBuffer::FromString(const std::string& str) {
@@ -45,7 +62,13 @@ SourceBuffer SourceBuffer::FromString(const std::string& str) {
 }
 
 int64_t Lexer::TokenToNum(Token token) {
-    return std::stoll(TokenToStr(token));
+    int64_t value = 0;
+    auto [ptr, ec] = std::from_chars(buffer_.data() + token.offset, buffer_.data() + token.offset + token.len, value);
+    if (ec == std::errc{}) {
+        return value;
+    }
+
+    return -1;
 }
 
 std::string Lexer::TokenToStr(Token token) {
@@ -68,10 +91,10 @@ void Lexer::SkipUselessText() {
             continue;
         }
 
-        if (buffer_[cursor_] == '/' && buffer_[cursor_ + 1] == '*') {
+        if (buffer_[cursor_] == kOpenCommentChars[0] && buffer_[cursor_ + 1] == kOpenCommentChars[1]) {
             cursor_ += 2;
-            while (buffer_[cursor_] != '\0') {
-                if (buffer_[cursor_] == '*' && buffer_[cursor_ + 1] == '/') {
+            while (cursor_ < buffer_.size()) {
+                if (buffer_[cursor_] == kCloseCommentChars[0] && buffer_[cursor_ + 1] == kCloseCommentChars[1]) {
                     cursor_ += 2;
                     break;
                 }
@@ -87,7 +110,7 @@ void Lexer::SkipUselessText() {
 Token Lexer::NextToken() {
     SkipUselessText();
     
-    if (buffer_[cursor_] == '\0') {
+    if (cursor_ == static_cast<std::size_t>(buffer_.size())) {
         return Token{TokenType::kEof, static_cast<uint32_t>(cursor_), 0};
     }
 
@@ -136,6 +159,14 @@ Token Lexer::LexNumber() {
 
     uint32_t offset = static_cast<uint32_t>(start);
     uint32_t len = static_cast<uint32_t>(cursor_ - start);
+    
+    if (IsAlpha(buffer_[cursor_])) {
+        while (IsAlnum(buffer_[cursor_])) {
+            cursor_++;
+        }
+        len = static_cast<uint32_t>(cursor_ - start);
+        return Token{TokenType::kError, offset, len};
+    }
 
     return Token{TokenType::kIntLiteral, offset, len};
 }
@@ -209,6 +240,11 @@ std::vector<Token> Lexer::TokenizeAll() {
     std::vector<Token> res;
     while (true) {
         Token tok = NextToken();
+        if (tok.type == TokenType::kError) {
+            res.clear();
+            std::cerr << "Token fignya\n";
+            return res;
+        }
         res.push_back(tok);
         if (tok.type == TokenType::kEof) {
             break;
