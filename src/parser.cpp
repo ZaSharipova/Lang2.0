@@ -9,12 +9,13 @@
 #include "../include/node.hpp"
 
 /* G          ::= FUNCTION_D+
-   FUNCTION_D ::= "declare" V "(" [ E {"," E}* ] ")" "{" OP* "}" TODO пока нет этого, непонятна точка входа
+   FUNCTION_D ::= V "(" [ E {"," E}* ] ")" "{" OP* "}"
 
-   OP         ::= RETURN | PRINTF | SCANF | WHILE | IF
+   OP         ::= RETURN | PRINTF | SCANF | WHILE | IF | CALL;
 
-   RETURN     ::= "return" E ";" +
-   PRINTF     ::= ("write" | "write_char") "(" (V | N) ")" ";" +
+   RETURN     ::= "return" E ";"
+   PRINTF     ::= ("write" | "write_char") "(" (V | N) ")" ";"
+   CALL       ::= V "(" E [ E {"," E}* ] ")" ";"
    SCANF      ::= "read" "(" S ")" ";" пока скип
    WHILE      ::= "while" "(" CONDITION ")" BODY +
    IF         ::= "if" "(" CONDITION ")" BODY [ "else" BODY ] +
@@ -32,18 +33,96 @@
 namespace paracl::parser {
 
 NodePtr Parser::Parse() {
-    auto root = std::make_unique<ScopeNode>();
+    auto root = std::make_unique<ProgramNode>();
 
     while (GetToken().type != lexer::TokenType::kEof) {
-        NodePtr op = GetOp();
-        if (!op) {
+        NodePtr function = GetFunctionDeclare();
+        if (!function) {
             return nullptr;
         }
 
-        root->AddStatement(std::move(op));
+        root->AddFunction(std::move(function));
     }
 
     return root;
+}
+
+NodePtr Parser::GetFunctionDeclare() {
+    const lexer::Token name_token = GetToken();
+    if (!IsThatTokenType(lexer::TokenType::kIdentifier)) {
+        std::cerr << "Error while parsing function declaration: there is no function name\n";
+        return nullptr;
+    }
+    std::string name = lexer_->TokenToStr(name_token);
+
+    if (!IsThatTokenType(lexer::TokenType::kLParen)) {
+        std::cerr << "Error while parsing function declaration: there's no '('\n";
+        return nullptr;
+    }
+
+    std::vector<std::string> args;
+    if (GetToken().type != lexer::TokenType::kRParen) {
+        do {
+            const lexer::Token arg_token = GetToken();
+            if (!IsThatTokenType(lexer::TokenType::kIdentifier)) {
+                std::cerr << "Error while parsing function declaration: parameter name expected\n";
+                return nullptr;
+            }
+
+            args.push_back(lexer_->TokenToStr(arg_token));
+        } while (IsThatTokenType(lexer::TokenType::kComma));
+    }
+
+    if (!IsThatTokenType(lexer::TokenType::kRParen)) {
+        std::cerr << "Error while parsing function declaration: there's no ')'\n";
+        return nullptr;
+    }
+
+    NodePtr body = GetBody();
+    if (!body) {
+        return nullptr;
+    }
+
+    return std::make_unique<FunctionNode>(std::move(name), std::move(args), std::move(body));
+}
+
+NodePtr Parser::GetFunctionCall() {
+    const lexer::Token name_token = GetToken();
+    if (!IsThatTokenType(lexer::TokenType::kIdentifier)) {
+        std::cerr << "Error while parsing function declaration: there is no function name\n";
+        return nullptr;
+    }
+    std::string name = lexer_->TokenToStr(name_token);
+
+    if (!IsThatTokenType(lexer::TokenType::kLParen)) {
+        std::cerr << "Error while parsing function declaration: there's no '('\n";
+        return nullptr;
+    }
+
+    std::vector<NodePtr> args;
+    if (GetToken().type != lexer::TokenType::kRParen) {
+        do {
+            NodePtr arg = GetExpression();
+            if (!arg) {
+                std::cerr << "Error while parsing function call: parameter expression expected\n";
+                return nullptr;
+            }
+
+            args.push_back(std::move(arg));
+        } while (IsThatTokenType(lexer::TokenType::kComma));
+    }
+
+    if (!IsThatTokenType(lexer::TokenType::kRParen)) {
+        std::cerr << "Error while parsing function declaration: there's no ')'\n";
+        return nullptr;
+    }
+
+    if (!IsThatTokenType(lexer::TokenType::kSemicolon)) {
+        std::cerr << "Error: there is no ';'\n";
+        return nullptr;
+    }
+
+    return std::make_unique<CallNode>(std::move(name), std::move(args));
 }
 
 NodePtr Parser::GetWhile() { // NOLINT(misc-no-recursion)
@@ -79,9 +158,12 @@ NodePtr Parser::GetIf() { // NOLINT(misc-no-recursion)
         return nullptr;
     }
 
-    NodePtr else_body = GetElse();
-    if (!else_body) { // std::optional is needed here
-        return std::make_unique<IfNode>(std::move(condition), std::move(body));
+    NodePtr else_body;
+    if (IsThatTokenType(lexer::TokenType::kKeyWordElse)) {
+        else_body = GetBody();
+        if (!else_body) {
+            return nullptr;
+        }
     }
 
     return std::make_unique<IfNode>(std::move(condition), std::move(body), std::move(else_body));
@@ -303,7 +385,11 @@ NodePtr Parser::GetOp() { // NOLINT(misc-no-recursion)
         return GetIf();
 
     case lexer::TokenType::kIdentifier:
-        return GetAssign();
+        if (SeeNextToken().type == lexer::TokenType::kEqual) {
+            return GetAssign();
+        }
+
+        return GetFunctionCall();
 
         // case lexer::TokenType::kKeyWordScan: // TODO пока скип
         //     return GetScan();
@@ -319,18 +405,22 @@ NodePtr Parser::GetAssign() {
     if (!IsThatTokenType(lexer::TokenType::kIdentifier)) {
         return nullptr;
     }
+
     if (!IsThatTokenType(lexer::TokenType::kEqual)) {
         std::cerr << "Error while parsing assignment: there is no '='\n";
         return nullptr;
     }
+
     NodePtr expr = GetExpression();
     if (!expr) {
         return nullptr;
     }
+
     if (!IsThatTokenType(lexer::TokenType::kSemicolon)) {
         std::cerr << "Error while parsing assignment: there is no ';'\n";
         return nullptr;
     }
+
     return std::make_unique<AssignNode>(lexer_->TokenToStr(name), std::move(expr));
 }
 
@@ -345,6 +435,11 @@ bool Parser::IsComparisonSign(const lexer::Token token) {
 
 lexer::Token Parser::GetToken() const {
     return tokens_[pos_];
+}
+
+lexer::Token Parser::SeeNextToken() const {
+    assert(pos_ + 1 < tokens_.size());
+    return tokens_[pos_ + 1];
 }
 
 lexer::Token Parser::GetNextToken() {

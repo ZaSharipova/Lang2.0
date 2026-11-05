@@ -3,9 +3,41 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace paracl {
+
+class ValueNode;
+class VariableNode;
+class OpNode;
+class AssignNode;
+class PrintNode;
+class ReturnNode;
+class FunctionNode;
+class CallNode;
+class ProgramNode;
+class ScopeNode;
+class IfNode;
+class WhileNode;
+
+class IVisitor {
+public:
+    virtual ~IVisitor() = default;
+
+    virtual void Visit(const ValueNode& node) = 0;
+    virtual void Visit(const VariableNode& node) = 0;
+    virtual void Visit(const OpNode& node) = 0;
+    virtual void Visit(const AssignNode& node) = 0;
+    virtual void Visit(const PrintNode& node) = 0;
+    virtual void Visit(const ReturnNode& node) = 0;
+    virtual void Visit(const FunctionNode& node) = 0;
+    virtual void Visit(const CallNode& node) = 0;
+    virtual void Visit(const ProgramNode& node) = 0;
+    virtual void Visit(const ScopeNode& node) = 0;
+    virtual void Visit(const IfNode& node) = 0;
+    virtual void Visit(const WhileNode& node) = 0;
+};
 
 class INode {
 public:
@@ -13,11 +45,25 @@ public:
     virtual ~INode() = default;
     INode(const INode&) = delete;
     INode& operator=(const INode&) = delete;
+
+    virtual void Accept(IVisitor& visitor) const = 0;
+};
+
+template <typename Derived>
+class NodeBase : public INode {
+public:
+    void Accept(IVisitor& visitor) const override {
+        visitor.Visit(static_cast<const Derived&>(*this));
+    }
+
+private:
+    NodeBase() = default;
+    friend Derived;
 };
 
 using NodePtr = std::unique_ptr<INode>;
 
-class ValueNode : public INode {
+class ValueNode : public NodeBase<ValueNode> {
 public:
     explicit ValueNode(uint64_t value)
         : value_(value) { }
@@ -27,7 +73,7 @@ private:
     uint64_t value_;
 };
 
-class VariableNode : public INode {
+class VariableNode : public NodeBase<VariableNode> {
 public:
     explicit VariableNode(std::string variable)
         : variable_(std::move(variable)) { }
@@ -52,7 +98,7 @@ enum class OpType : std::uint8_t {
     kNe,
 };
 
-class OpNode : public INode {
+class OpNode : public NodeBase<OpNode> {
 public:
     OpNode(OpType type, NodePtr left, NodePtr right)
         : type_(type)
@@ -69,7 +115,7 @@ private:
     NodePtr right_;
 };
 
-class AssignNode : public INode {
+class AssignNode : public NodeBase<AssignNode> {
 public:
     AssignNode(std::string name, NodePtr expr)
         : name_(std::move(name))
@@ -83,7 +129,7 @@ private:
     NodePtr expr_;
 };
 
-class PrintNode : public INode {
+class PrintNode : public NodeBase<PrintNode> {
 public:
     explicit PrintNode(NodePtr expr)
         : expr_(std::move(expr)) { }
@@ -94,7 +140,7 @@ private:
     NodePtr expr_;
 };
 
-class ReturnNode : public INode { // TODO return and print have to extend the same class
+class ReturnNode : public NodeBase<ReturnNode> { // TODO return and print have to extend the same class
 public:
     explicit ReturnNode(NodePtr expr)
         : expr_(std::move(expr)) { }
@@ -105,7 +151,47 @@ private:
     NodePtr expr_;
 };
 
-class ScopeNode : public INode {
+class FunctionNode : public NodeBase<FunctionNode> {
+public:
+    FunctionNode(std::string name, std::vector<std::string> params, NodePtr body)
+        : name_(std::move(name))
+        , params_(std::move(params))
+        , body_(std::move(body)) { }
+
+    const std::string& GetName() const { return name_; }
+    const std::vector<std::string>& GetParams() const { return params_; }
+    INode* GetBody() const { return body_.get(); }
+
+private:
+    std::string name_;
+    std::vector<std::string> params_;
+    NodePtr body_;
+};
+
+class CallNode : public NodeBase<CallNode> {
+public:
+    CallNode(std::string name, std::vector<NodePtr> args)
+        : name_(std::move(name))
+        , args_(std::move(args)) { }
+
+    const std::string& GetName() const { return name_; }
+    const std::vector<NodePtr>& GetArgs() const { return args_; }
+
+private:
+    std::string name_;
+    std::vector<NodePtr> args_;
+};
+
+class ProgramNode : public NodeBase<ProgramNode> {
+public:
+    void AddFunction(NodePtr function) { functions_.push_back(std::move(function)); }
+    const std::vector<NodePtr>& GetFunctions() const { return functions_; }
+
+private:
+    std::vector<NodePtr> functions_;
+};
+
+class ScopeNode : public NodeBase<ScopeNode> {
 public:
     void AddStatement(NodePtr stmt) { statements_.push_back(std::move(stmt)); }
     const std::vector<NodePtr>& GetStatements() const { return statements_; }
@@ -114,7 +200,7 @@ private:
     std::vector<NodePtr> statements_;
 };
 
-class IfNode : public INode {
+class IfNode : public NodeBase<IfNode> {
 public:
     IfNode(NodePtr cond, NodePtr body, NodePtr else_body = nullptr)
         : cond_(std::move(cond))
@@ -131,7 +217,7 @@ private:
     NodePtr else_body_;
 };
 
-class WhileNode : public INode {
+class WhileNode : public NodeBase<WhileNode> {
 public:
     WhileNode(NodePtr cond, NodePtr body)
         : cond_(std::move(cond))

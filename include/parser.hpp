@@ -9,12 +9,13 @@
 #include "node.hpp"
 
 /* G          ::= FUNCTION_D+
-   FUNCTION_D ::= "declare" V "(" [ E {"," E}* ] ")" "{" OP* "}"
+   FUNCTION_D ::= V "(" [ E {"," E}* ] ")" "{" OP* "}"
 
-   OP         ::= RETURN | PRINTF | SCANF | WHILE | IF
+   OP         ::= RETURN | PRINTF | SCANF | WHILE | IF | CALL;
 
-   RETURN     ::= "return" E ";" +
-   PRINTF     ::= ("write" | "write_char") "(" (V | N) ")" ";" +
+   RETURN     ::= "return" E ";"
+   PRINTF     ::= ("write" | "write_char") "(" (V | N) ")" ";"
+   CALL       ::= V "(" E [ E {"," E}* ] ")" ";"
    SCANF      ::= "read" "(" S ")" ";" пока скип
    WHILE      ::= "while" "(" CONDITION ")" BODY +
    IF         ::= "if" "(" CONDITION ")" BODY [ "else" BODY ] +
@@ -29,6 +30,7 @@
    N          ::= Number +
 */
 
+
 namespace paracl::parser {
 
 using NodePtr = std::unique_ptr<INode>;
@@ -42,6 +44,8 @@ public:
     NodePtr Parse();
 
 private:
+    NodePtr GetFunctionDeclare();
+    NodePtr GetFunctionCall();
     NodePtr GetWhile();
     NodePtr GetIf();
     NodePtr GetElse();
@@ -61,6 +65,7 @@ private:
     static OpType ToOpType(lexer::Token token);
 
     lexer::Token GetToken() const;
+    lexer::Token SeeNextToken() const;
     lexer::Token GetNextToken();
     bool IsThatTokenType(lexer::TokenType type);
     void IncreaseTokensPos();
