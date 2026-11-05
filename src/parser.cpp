@@ -31,6 +31,21 @@
 
 namespace paracl::parser {
 
+NodePtr Parser::Parse() {
+    auto root = std::make_unique<ScopeNode>();
+
+    while (GetToken().type != lexer::TokenType::kEof) {
+        NodePtr op = GetOp();
+        if (!op) {
+            return nullptr;
+        }
+
+        root->AddStatement(std::move(op));
+    }
+
+    return root;
+}
+
 NodePtr Parser::GetWhile() { // NOLINT(misc-no-recursion)
     if (!IsThatTokenType(lexer::TokenType::kKeyWordWhile)) {
         return nullptr;
@@ -49,7 +64,7 @@ NodePtr Parser::GetWhile() { // NOLINT(misc-no-recursion)
     return std::make_unique<WhileNode>(std::move(condition), std::move(body));
 }
 
-NodePtr Parser::GetIf() { // NOLINT(misc-no-recursion) TODO пока без else
+NodePtr Parser::GetIf() { // NOLINT(misc-no-recursion)
     if (!IsThatTokenType(lexer::TokenType::kKeyWordIf)) {
         return nullptr;
     }
@@ -64,7 +79,25 @@ NodePtr Parser::GetIf() { // NOLINT(misc-no-recursion) TODO пока без else
         return nullptr;
     }
 
-    return std::make_unique<IfNode>(std::move(condition), std::move(body));
+    NodePtr else_body = GetElse();
+    if (!else_body) { // std::optional is needed here
+        return std::make_unique<IfNode>(std::move(condition), std::move(body));
+    }
+
+    return std::make_unique<IfNode>(std::move(condition), std::move(body), std::move(else_body));
+}
+
+NodePtr Parser::GetElse() { // NOLINT(misc-no-recursion)
+    if (!IsThatTokenType(lexer::TokenType::kKeyWordElse)) {
+        return nullptr;
+    }
+
+    NodePtr body = GetBody();
+    if (!body) {
+        return nullptr;
+    }
+
+    return body;
 }
 
 NodePtr Parser::GetCondition() {

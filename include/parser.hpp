@@ -39,9 +39,12 @@ public:
         : lexer_(lexer)
         , tokens_(std::move(tokens)) { }
 
+    NodePtr Parse();
+
 private:
     NodePtr GetWhile();
     NodePtr GetIf();
+    NodePtr GetElse();
     NodePtr GetCondition();
     NodePtr GetBody();
     NodePtr GetExpression();
